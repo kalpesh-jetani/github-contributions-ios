@@ -1,0 +1,172 @@
+---
+description: Learn from a resource or from finished work and record it — a repo, Figma link or doc URL, a shipped feature, a promoted pattern, or a repeated manual step captured as a script (--script)
+argument-hint: [a URL, a path, a pattern name, a feature that just shipped, or --script <what you keep doing by hand>]
+allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, AskUserQuestion
+---
+
+```bash
+./Scripts/ga-step.sh after sync-app-notes      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
+Turn something into repo knowledge: a resource you were given, or work that just finished.
+
+Input: `$ARGUMENTS` — a URL, a local path, a pattern name from `docs/patterns/`, or nothing (then
+ask what to learn from).
+
+---
+
+## 1. Ask for the source — do not infer it
+
+Before writing anything, get the material. **Ask; do not guess from the name of the thing.**
+
+| Building | Ask for |
+|---|---|
+| A screen or component | The Figma frame or a screenshot, and which existing screen it should resemble |
+| An integration | The vendor's docs URL, and a working sample — theirs or yours |
+| A pattern from elsewhere | The example repo or file, and what specifically to copy from it |
+| A framework or tool | The docs URL, and what problem it is being brought in to solve |
+
+Also ask the question that decides everything else: **what does success look like?** A resource with
+no goal attached produces a summary nobody reads. A resource with a goal produces a usage note.
+
+If the user has no source to give, say that plainly and stop — inventing an integration from the
+name of an SDK is how a plausible, wrong implementation gets written.
+
+## 2. Read it, then write the usage note
+
+For a web or Figma link, fetch it. Then write `docs/resources/<name>.md`:
+
+```markdown
+# <Resource>
+
+- **Source:** <url or path> — what it is
+- **Goal:** what we are using it to accomplish
+- **Read on:** <date>
+
+## What we take from it
+The specific pieces, each with the file or section they come from.
+
+## What we deliberately do not take
+The parts that conflict with a §2 rule, or that solve a problem we do not have.
+
+## How it maps here
+Their concept → our layer. Where the wrapper goes (§7) if it is a vendor.
+
+## Open questions
+What the source does not answer.
+```
+
+**Cite, do not transcribe.** A usage note that restates the vendor's documentation goes stale on
+their next release and is worse than a link. Say what *we* do with it.
+
+## 3. Index it
+
+Every resource, pattern, feature and skill gets a row in [INDEX.md](../INDEX.md) **and** a grep row
+in [MAP.tsv](../MAP.tsv). A note nobody indexed is a note nobody finds.
+
+```bash
+grep -n "<name>" .claude/INDEX.md .claude/MAP.tsv     # already indexed?
+awk -F'\t' '$2=="resource"' .claude/MAP.tsv          # the neighbours to match format against
+```
+
+The MAP row is tab-separated, four columns — `path`, `kind`, `topics`, `read it when`. Verify it
+parses, or the registry silently loses the row:
+
+```bash
+awk -F'\t' 'NF!=4 && $0 !~ /^#/ {print FILENAME":"NR": "NF" columns"}' .claude/MAP.tsv
+```
+
+## 4. Promoting a pattern to a skill
+
+`docs/patterns/` holds six patterns that ship un-promoted because they cannot fire in an empty repo.
+`/learn <pattern>` promotes one.
+
+**Check the first condition before asking about the other two:**
+
+```bash
+ls .claude/skills/                                     # what is already promoted
+grep -c '^| `' .claude/notes/STYLE-GUIDE.md            # e.g. does style-guide govern any token yet
+./Scripts/check-skill-triggers.py 2>/dev/null || echo "(no trigger checker in this repo)"
+```
+
+**Promote only when all three are true:**
+
+1. **The code it governs exists** — a `style-guide` skill with no registered tokens fires on nothing.
+2. **It has been needed at least twice**, or once with a gotcha worth warning about. Once is an
+   anecdote.
+3. **Its trigger vocabulary does not collide** — `python3 Scripts/check-skill-triggers.py` after
+   drafting, and add a prompt for it.
+
+Then: move the body to `.claude/skills/<name>/SKILL.md`, rewrite the description as trigger phrases
+only, **replace its generic examples with this repo's real file paths**, and delete the pattern file.
+Two copies means one rots.
+
+Show the draft and **wait for approval** before writing it — a skill changes behaviour in every
+future session.
+
+## 5. Promoting a repeated operation to a script
+
+`/learn --script` captures work you have now done by hand more than once as a **registered script**,
+so the next run is one call with a known output instead of a re-derivation.
+
+**Promote only when all three are true** — the same earned-it test as a skill:
+
+1. **It has been done by hand at least twice.** Once is an anecdote; a script written for one use is
+   a liability that still has to be maintained.
+2. **Its input and output can be stated exactly.** If you cannot write the `#@in` and `#@out` lines,
+   the operation is still being discovered and a script would freeze the wrong shape.
+3. **It is deterministic.** Judgement belongs in a skill, not a script. A script that needs a
+   decision mid-run is two scripts and a question.
+
+Then, **in this order**:
+
+```bash
+# 1. Does one already exist? Registry first — never write a duplicate.
+grep -i -e <verb> -e <noun> .claude/SCRIPTS.tsv
+
+# 2. Where does it belong?
+#    Scripts/claude-workflows/  a numbered phase of the CLAUDE.md pipeline
+#    Scripts/claude-utils/      cross-phase, reusable
+#    Scripts/                   a repo-wide tool
+
+# 3. Write it: #@ header FIRST, then the body. The header is the contract you
+#    just committed to; writing it first is what stops the body drifting from it.
+#    Required fields: kind platform claude purpose usage in out exit effects
+#    Source _common.sh for die/kv/count/md_sections — never reimplement them.
+
+# 4. Register and verify.
+./Scripts/claude-utils/register-scripts.sh
+./Scripts/claude-utils/register-scripts.sh --check     # must exit 0
+
+# 5. Reference it from the skill that needs it, in that skill's step-0 script list.
+#    A script nothing calls is a script nobody finds.
+
+# 6. Index it.
+grep -n "<name>" .claude/MAP.tsv
+```
+
+**Rely on its result, do not re-verify it.** A registered script has a declared output;
+re-reading the files it just summarised spends the tokens the script existed to save. If the
+output looks wrong, the script has a bug — read the body, fix it, re-run. That is the one
+time the body is worth opening.
+
+Show the `#@` header and wait for approval before writing the body — a registered script becomes
+something every future session is told to call.
+
+## 6. Learning from finished work
+
+When a feature ships, `docs/patterns/feature-complete.md` has the full close-out procedure. The
+short version: offer **save it as a skill · just close with a note · continue · decide later**, and
+recommend *just close* unless the next similar feature would follow the same sequence. Most work
+teaches nothing reusable, and a thin skill is worse than none.
+
+## Constraints
+
+- **Never invent a resource.** No plausible-looking API surface, no remembered SDK signature. If it
+  was not fetched or supplied, it is not known.
+- **Never promote a pattern to a skill unasked** — the always-on cost is the user's to accept.
+- Do not fetch a URL the user did not give you.
+- One resource note per resource. If two overlap, merge them.

@@ -1,0 +1,599 @@
+---
+description: Initialize or adopt GenericArch in a repo — reconciles conflicting rules with approval before changing anything, then scaffolds only what is missing
+argument-hint: [optional: product name]
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion
+---
+
+```bash
+./Scripts/ga-step.sh require project-init      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
+Initialize this project, or adopt this structure into an existing one.
+
+**This command's whole discipline is asking, not assuming.** Nothing is created, overwritten, or
+overridden without an explicit yes.
+
+> Named `/project-init`, not `/init` — Claude Code's built-in `/init` generates CLAUDE.md and would
+> shadow a custom command with that name. The built-in does **not** run this.
+
+---
+
+## Step 0 — Read the evidence, then branch
+
+Everything this step needs is gathered offline. `install.sh` runs the scan itself once
+the manifest lands, so read the artifact; run the script only if it is missing or stale:
+
+```bash
+cat .claude/notes/.evidence/INIT-SCAN.md          # written by install.sh
+./Scripts/ga-init-scan.sh --check                 # exit 1 → stale, regenerate
+./Scripts/ga-init-scan.sh . --write               # regenerate (read-only; decides nothing)
+```
+
+It carries the mode, this repo's `CLAUDE.md` files with their sizes, their skills and commands, the
+toolchain mismatches, the §A2 conflict evidence, the §A4 collisions, the routable-path counts, and
+the orphan module docs. **Do not write anything in this step, and do not re-run the scans it
+already did.** Every row is a fact from disk with its blind spot attached; none of them is a verdict.
+
+**The stack is acquired, never assumed or copied.** Precedence: the **project wins** (its settings
+are the shipped contract), the **machine** fills the gaps, and whatever neither answers gets
+**asked** — see S1a.
+
+Never carry GenericArch's numbers or framework choices into another repo.
+
+**`ga-init-scan.sh` exits 3 on a BLOCKING mismatch — a deployment target above the installed SDK, or
+a language mode the compiler cannot provide. Raise it before anything else and stop.** That build
+cannot succeed as configured, and adopting docs onto a repo that doesn't build wastes the session.
+Hand off to `/upgrade-stack`, which asks twice before changing any project setting. Do not fix it
+inline here: initialisation and mutating someone's build settings are different acts with different
+consent.
+
+The artifact's `## mode` line is derived from the same gate `install.sh` uses, so the two cannot
+disagree:
+
+| Signal | Mode |
+|---|---|
+| A `CLAUDE.md`, `.claude/skills/`, `.claude/commands/`, or real source exists | **Path A — existing repo** |
+| Empty, or docs only, or a single commit | **Path B — fresh repo** |
+
+**Report what you found before proceeding**, and if it's ambiguous — a `CLAUDE.md` but no code, or
+code but no `CLAUDE.md` — say which path you're taking and why, and let the user redirect.
+
+One thing the scan cannot read for you: `.claude/settings.json`. Open it before S1b's permission
+round, since merging into it is a write.
+
+---
+
+# Path A — Existing repo
+
+**Read [ADOPTION.md](../../docs/ADOPTION.md) and follow it.** It carries the whole reconciliation
+procedure: the governing principle that their rules win by default, the conflict table, the four
+options per conflict, the name-collision check, additive installation, and recording every override.
+
+It lives there rather than here so a fresh-repo run does not load a procedure it will never use.
+
+**Two of its steps are already done.** `## conflicts` in the evidence artifact is A2's evidence —
+one row per signal, with counts, example paths, and what each count does not establish — and
+`## collisions` is A4's list. What is *not* done is the rest of both: classifying each row as hard,
+migration, convention or soft, and asking A3's four options per row. A count is not a severity, and
+the artifact deliberately refuses to guess one.
+
+**Do not improvise a shortened version of it.** Adoption goes wrong quietly — a rule adopted without
+being offered, or a file overwritten because a collision was not checked — and the detail is the
+safeguard.
+
+# Path B — Fresh repo: establish the base rules
+
+## B1. Show what this repo already gives them
+
+Present this before asking for anything — the answers change once they know what's on offer.
+
+**Skills** — Claude applies these on its own when the situation matches:
+
+| Skill | Fires when |
+|---|---|
+| `new-feature` | Adding a feature or screen — enforces the §0 asks and every content state |
+| `debug` | Something is broken, blank, or silently wrong |
+
+Only two ship, on purpose: a skill costs its description every session, and one that cannot fire in
+an empty repo costs it for nothing. Six more are written and waiting in `docs/patterns/` — change,
+style-guide, dark-light-mode, rtl-support, release-bump, feature-complete. Each becomes a skill
+via `/learn <name>` once the code it describes exists.
+
+**Commands** — only run when the user types them: `/build` · `/verify` · `/review` · `/decide` ·
+`/gaps` · `/learn` · `/project-init` · `/upgrade-stack` · `/sync-app-notes`.
+
+Then ask which they want kept. A skill they'll never use is always-on description cost for nothing.
+
+Confirm the list against what is actually installed rather than reciting this table — it is a
+description, and the filesystem is the fact:
+
+```bash
+ls .claude/skills .claude/commands
+awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv
+```
+
+## B2. Ask for their rules — and separate the two kinds
+
+These are different things, and conflating them is why rule lists decay:
+
+| Kind | Meaning | Lands in |
+|---|---|---|
+| **Hard rules** | Never broken. A violation blocks the change | CLAUDE.md §2 — **approval-gated** |
+| **Base rules** | Defaults. Overridable with a stated reason | the relevant `docs/` file |
+
+Ask for each, and for every proposed **hard** rule ask one more question: **how would we know it was
+broken?** A hard rule that can't be checked by grep, a test, or a build failure is a base rule
+wearing a costume — it will decay within a sprint. Say that plainly; §2's existing eleven are all
+checkable, which is why they hold ([DONE.md](../../docs/DONE.md),
+[DELIVERY.md](../../docs/DELIVERY.md) enforcement table).
+
+Offer this structure's §2 rules as a starting set, individually declinable — not as a package.
+
+Writing the agreed hard rules into CLAUDE.md is itself an **approval-gated** step: show the final
+section as exact text and wait for a yes before writing it ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+
+## B3. Ask the scope of each rule — project or directory
+
+Claude Code loads a nested `CLAUDE.md` when files in that directory are touched. That makes scope a
+real choice, not a formality:
+
+| Scope | File | Use for |
+|---|---|---|
+| **Project** | root `CLAUDE.md` | Rules that apply everywhere. Always-on cost for every session |
+| **Component** | `<component-dir>/CLAUDE.md` | Rules only true inside that component — loaded only when it's touched (§2.16) |
+
+Directory-level is **required**, not offered: §2.16 gives every component its own `CLAUDE.md`,
+carrying its boundary and the rules true only inside it. It keeps the root file small (§5) and costs
+nothing until that directory is touched. What belongs in one:
+[STRUCTURE.md](../../docs/STRUCTURE.md).
+
+Two illustrations — **not a set to create up front.** A component gets its file when the component
+gets created:
+
+- `Packages/Features/CLAUDE.md` — "no `#if DEBUG`", "no `resolve` outside `DI/`", "no sibling
+  feature import". These are only meaningful inside a feature.
+- a design-system component directory — "`#if os(...)` is allowed here and nowhere else".
+
+Skills and commands can be directory-scoped the same way. Ask whether any should be.
+
+---
+
+# Shared — both paths continue here
+
+## S0. Deduplicate rules across the four levels
+
+A rule stated at two levels drifts, and the copy that goes stale is the one nobody is reading. Audit
+before adding anything, because adoption is when duplicates get created.
+
+```bash
+ls .claude-plugin dist/*/. claude-plugin 2>/dev/null          # 1 plugin
+find . -name CLAUDE.md -not -path '*/.git/*'; ls docs .claude/skills .claude/commands 2>/dev/null
+ls ~/.claude/CLAUDE.md ~/.claude/projects/*/memory/*.md 2>/dev/null   # 3 user
+ls "/Library/Application Support/ClaudeCode/managed-settings.json" 2>/dev/null  # 4 enterprise
+```
+
+**This step reports; it does not delete.** `/project-init` removes nothing — name the duplicates,
+say which copy should survive, and stop. Deleting them is
+[`/clean-up-genericarch-extra-memory`](clean-up-genericarch-extra-memory.md), which exists precisely
+because a removal here also strips the rule's references out of the memory directories, and an
+adoption run is the worst moment to be doing that silently.
+
+**Which copy should survive: the most specific one**, working inward — Enterprise, then User-Level,
+then project, then Plugin. The most specific copy is the one that ships with the thing the rule
+governs, so it is the one that stays.
+
+| Level | Reach | Verdict to report on a duplicate |
+|---|---|---|
+| Enterprise | every repo, every user | **Read-only — never touch it.** If it duplicates a lower rule, the lower one is the candidate |
+| User-Level | this user | Candidate — the project or plugin copy already covers it |
+| project | everyone who clones the repo | Survives, unless a plugin ships the same rule |
+| Plugin | every repo that installs it | Survives for tooling rules; a product rule does not belong here |
+
+Two cautions for the report:
+
+- **A project-scoped memory directory adds no reach over the repo itself.** A rule in both
+  `~/.claude/projects/<this>/memory/` and `CLAUDE.md` is pure duplication — flag the memory copy.
+- **Check the copy you propose keeping carries the reasoning**, not just the sentence. Losing the
+  fuller statement and keeping a one-line restatement loses the *why*, which is what stops the rule
+  being argued again. Say so if that is the trade.
+
+Hand the list to `/clean-up-genericarch-extra-memory`. Removing a rule from `CLAUDE.md` needs its
+own approval there too ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+
+## S0b. Point the target's CLAUDE.md at the manifest
+
+If `genericarch.installation.md` exists, the reference docs are **fetched on demand** — the skills
+link to paths that are not on disk yet. Nothing tells the target's own CLAUDE.md that.
+
+Propose adding these two lines, and **wait for approval** — it is still a CLAUDE.md edit
+([STRUCTURE.md](../../docs/STRUCTURE.md)):
+
+```markdown
+Grep `.claude/MAP.tsv` to find any doc, note, skill or pattern. Architecture reference is fetched
+on demand — a `docs/…` path that is not on disk is a fetch instruction, not a broken link; the
+map's `# FETCH-BASE:` line says where to get it, and `genericarch.installation.md` is the full
+index.
+```
+
+Without it, the first unresolved link reads as a missing file and the doc gets reinvented from
+scratch — which is worse than not installing at all.
+
+## S0c. Every routable path must resolve — installed, or fetchable
+
+The map is what Claude greps to find anything. A row it cannot resolve is worse than a missing
+row: it reads as "this exists here", and when the file isn't there the content gets invented.
+
+Two classes, and they fail differently:
+
+| Class | Must be | Why it cannot be fetched |
+|---|---|---|
+| `.claude/skills`, `.claude/commands`, `.claude/MAP.tsv`, `.claude/notes`, `.claude/memory`, `Scripts/` | **on disk** | Claude Code discovers skills and commands from the filesystem; a fetched skill never fires, and a map you must fetch first cannot route you to itself |
+| everything under `docs/` | **on disk *or* fetchable** | Reference material — fetched when a task actually needs it |
+
+The scan already ran it — `## routes` in `.claude/notes/.evidence/INIT-SCAN.md` carries the counts,
+the `# FETCH-BASE:` value, and every path that did not resolve. Regenerate it only if it is stale:
+
+```bash
+./Scripts/ga-init-scan.sh --check          # exit 1 → stale
+./Scripts/ga-init-scan.sh . --write
+```
+
+Then act on what it printed:
+
+- **`MISSING-LOCAL`** — the install was partial. Re-run `install.sh --apply`, or copy the named
+  paths from the source repo. Do not proceed; a missing skill is silently absent, not an error.
+- **`UNRESOLVABLE`** — the map points at docs that are neither present nor fetchable, because no
+  `# FETCH-BASE:` line was stamped. Add one as the first line of `.claude/MAP.tsv`, taking the URL
+  from **`genericarch.installation.md`** (its *Pinned to* commit — use that exact ref, never
+  `main`, or the docs will drift out from under the install):
+
+  ```
+  # FETCH-BASE:	https://raw.githubusercontent.com/<owner>/GenericArch/<pinned-sha>
+  ```
+
+- **`FETCHABLE`** — correct and expected. Nothing to do; those rows resolve when a task needs them.
+
+**Report the counts to the user** rather than fixing silently — how many resolve locally, how many
+are fetch-on-demand, and how many cannot be reached at all. The last number must be zero before
+`/project-init` reports success.
+
+## S1a. Resolve the stack — detect first, ask only the remainder
+
+```bash
+./Scripts/detect-toolchain.sh              # what the project and machine already answer
+./Scripts/detect-toolchain.sh --options    # the valid choices, derived from this machine
+```
+
+**Ask only the rows the detector reports `unresolved`.** Re-asking something the project already
+answers is how an adoption starts overwriting decisions it was told to respect.
+
+| Ask | Options come from | Recommend |
+|---|---|---|
+| UI framework | SwiftUI · UIKit/AppKit · mixed | SwiftUI — the module docs assume it |
+| Dependencies | SPM · CocoaPods · Carthage | SPM |
+| Project files | SPM only · Tuist · XcodeGen · checked-in `.xcodeproj` | SPM only |
+| Concurrency | async/await strict · async/await minimal · Combine · completion handlers | async/await strict |
+| Swift language mode | **whatever the compiler accepts** — the script probes, never guesses | the latest available |
+| Testing | Swift Testing · XCTest · both | Swift Testing; XCTest for UI |
+| Platforms | **the SDKs actually installed** | the ones the product ships |
+
+Two rules for this round:
+
+- **Recommend the latest the machine supports, don't impose it.** A team on Swift 5 mode with a
+  large codebase has a reason; ask for it rather than assuming a migration.
+- **Say what a divergent choice invalidates.** UIKit means the `dark-light-mode`/`rtl-support`
+  skills no longer fit as written, and any SwiftUI-shaped component guidance goes with them.
+  Combine means §6 does not apply. Naming that up front is the difference between an informed
+  choice and a broken adoption.
+
+Record every answer with `/decide`, then propose the §1 table from `--markdown` — **and wait for
+approval before writing it to CLAUDE.md** ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+
+## S1b. Ask what cannot be inferred at all
+
+Batch in one round, with a recommendation each. Skip anything Path A already established.
+
+**Identity** — product name (`$ARGUMENTS` if given) · bundle ID prefix (`com.<org>.<product>`) ·
+Apple Team ID. Note when asking: the bundle ID appears in four `.xcconfig` files with per-stage
+suffixes ([SCHEMES.md](../notes/SCHEMES.md)); renaming later means re-provisioning. **Never
+fabricate a Team ID.**
+
+**Languages at v1** — base language *and* the full set. Highest-cost deferral in the list: §2.3
+requires localization from day one, so adding a language later means auditing every catalog instead
+of filling one column. If any is RTL (ar, he, fa, ur), say that `/rtl-support` applies from the first
+screen.
+
+**Open decisions** — read [DECISIONS.md](../../docs/DECISIONS.md) *Open* and offer each: the
+iOS 17 / macOS 26 visual language, and confirming the macOS 26.6 minimum (it excludes every Mac that
+can't run macOS 26 — [GAPS.md](../../docs/GAPS.md) E1). Do **not** ask the §0 per-feature questions
+here; those belong to `/new-feature`.
+
+**Permissions** — ask whether to create or merge `.claude/settings.json`, approving each group
+separately. Never write a permission the user didn't name.
+
+| Group | Contains | Note |
+|---|---|---|
+| Swift build/test | `swift build`, `swift test`, `swift package resolve` | Low risk |
+| Xcode | `xcodebuild` build/test/archive | Slow; archive can touch signing |
+| Read-only git | `status`, `diff`, `log`, `show` | Low risk |
+| Mutating git | `add`, `commit`, `push` | **Ask separately** — never bundle with read-only |
+
+`swift package edit` is deliberately excluded: it changes what a build resolves, so it stays visible.
+
+**`.gitignore`** — ask, and show the contents first: `.build/`, `.swiftpm/`, `DerivedData/`,
+`*.xcuserdatad`, `xcuserdata/`, `.DS_Store`. **Never** add `Package.resolved` — it is committed and
+is the record of what ships ([REPO.md](../../docs/REPO.md)).
+
+## S2. Scaffold only what was approved
+
+**Ask which layers this product needs — derive them, never default them.** Read the requirements
+and propose only what they call for; a layer with no consumer is instant drift. There is **no
+default set**: the base ships no architecture ([REPO.md](../../docs/REPO.md)), and a list of layers
+a product "should" have is what the retired per-module docs were.
+
+The rows below are **illustrations of what a layer is for**, to phrase the question with — not a
+set to create, and not ordered by preference. Skip any the requirements do not reach.
+
+| Layer | Add when | Skip if |
+|---|---|---|
+| Shared core | Two or more layers need the same protocol, model or error | Nothing is shared yet — one feature needs no core |
+| Dependency injection | Features receive collaborators they do not construct | No features yet, or nothing to inject |
+| Routing | More than one screen, or any deep link | Single screen |
+| Design system | Any repeated visual value or component | One screen, no repetition |
+| Localization | Any user-visible string, or a second language | Nothing user-visible yet |
+| Message presentation | Any alert, confirmation or permission rationale | No message surfaces |
+| Logging | Anything logged in a shipping build | Debug printing only |
+| Storage | Anything persisted, or any secret | Nothing outlives the process |
+| Networking | Any request | Fully offline |
+| Image caching | Remote images in a scrolling view | No remote images |
+| Notifications | Push or local notifications | Neither |
+
+Names are the product's to choose — these are roles, not package names. What each role owns:
+[REPO.md](../../docs/REPO.md).
+
+**Explicitly do NOT ask about:**
+- Wrappers/ (added as vendors require it)
+- Features/ (added per `/new-feature`)
+- Any layer this product resolves from its own repository (separate repos; reuse test in §4.2)
+
+Then scaffold:
+
+1. `.gitignore` and `.claude/settings.json` — exactly the consented entries, merged not replaced.
+2. **The shared layer first, if one was approved** — it has zero dependencies and everything else
+   compiles against it. Give it a `platforms:` line copied from a sibling package, or from
+   `./Scripts/detect-toolchain.sh` in a repo that has none yet.
+3. Then the rest, in §3's layering order — downward only, each depending on what precedes it.
+4. Each approved layer gets its `CLAUDE.md` **before its first source file** (§2.16).
+5. The `.xcodeproj` shell with four configurations and their `.xcconfig` files, using the answered
+   bundle ID and Team ID.
+6. **Nothing extracted to its own repository** — extraction fails the "actually reused" test until
+   a second product exists (CLAUDE.md §4.2).
+
+## S2b. Confirm which skills are actually installed
+
+**The installer already did this filtering.** A default install ships exactly one skill — `debug` —
+and `new-feature` only when `--with-architecture` was passed, because a skill that cannot fire is
+not harmless: it costs its description in every session and gets offered and believed. There is
+nothing to remove here — and `/project-init` does not remove anything in any case.
+
+Confirm against the filesystem rather than reciting a list — the filesystem is the fact:
+
+```bash
+ls .claude/skills .claude/commands
+awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv
+```
+
+The remaining patterns are **reference, fetched on demand** — `change`, `dark-light-mode`,
+`feature-complete`, `release-bump`, `rtl-support`, `style-guide`, `wrapper`. None is installed as a
+skill, and none should be until the code it describes exists here. Promote one with `/learn <name>`
+at that point, and record the promotion so it is not re-proposed.
+
+A row in `MAP.tsv` whose kind ends in `:remote` is not a missing file — it names a surface that
+exists upstream and this product did not take. Leave it; it is how Claude learns the surface exists
+without paying for it.
+
+## S3. Populate the notes
+
+**Never offer `/sync-app-notes` inside this command.** Its gate is
+`ga-step.sh require sync-app-notes`, which needs `install`, `project-init` **and** `gaps` recorded —
+and `project-init` is not recorded until S5, below. Offering it here produced a loop: the user
+accepts, the gate exits 5, its header says stop, and the next run offers it again. The order is not
+negotiable and `--force` is never the answer (§5, [SEQUENCE.md](../../docs/SEQUENCE.md)).
+
+So this step **describes what comes next** and runs nothing:
+
+> "Initialisation is done. Next: `/gaps` to triage what this architecture should cover, then
+> `/sync-app-notes` to build the inventories from what is actually on disk. That second command
+> rewrites nine files, so it is worth running once there is real content — an empty `Packages/`
+> produces inventories that look current and are mostly blank."
+
+**Say which of the two the repo is ready for.** A repo that already has code is ready for both as
+soon as this command records; a freshly scaffolded one should wait for its first feature or asset
+before the notes are worth building.
+
+Then note, for the user to fill by hand later what no scan can know: the marketing version in `Base.xcconfig`, signing rows in
+[SCHEMES.md](../notes/SCHEMES.md), Team ID in [PROJECT.md](../notes/PROJECT.md).
+
+**Link every note back to CLAUDE.md.** Each inventory should cite the relevant section so Claude
+can find the authoritative rules: "Grep .claude/MAP.tsv for the module doc" or "See CLAUDE.md §2.3
+on localization keys" or "See CLAUDE.md §8 on accessibility."
+
+## S3c. Seed memory from what init learned
+
+Setup discovers things no file records afterwards, and the next session starts blind without them.
+Seed them now, while they are still in front of you:
+
+```bash
+python3 Scripts/memory-add.py --name <slug> --type project|reference|feedback \
+        --description "<one line>" --body "<the fact>"
+```
+
+It writes the memory **and** its index row together — the row is the half that gets forgotten, and
+`.claude/memory/INDEX.md` is explicit that a memory without one is a memory nobody finds.
+
+**Seed only what the repo does not already record.** The stack is in
+[PROJECT.md](../notes/PROJECT.md); settled choices are in `docs/DECISIONS.md`. Duplicating either
+creates two sources that drift. What qualifies is the *how to apply* — the thing a reader of
+DECISIONS.md still would not know:
+
+| Worth a memory | Not worth one |
+|---|---|
+| "Repo ships CocoaPods; the SPM rule was adopted new-code-only — do not propose migrating existing pods" | "This project uses CocoaPods" *(detectable)* |
+| "Storyboard-heavy; the SwiftUI rule applies to new screens only" | "Minimum iOS is 16.6" *(PROJECT.md)* |
+| A rule the user overrode during S0, and the reason they gave | The decision itself *(DECISIONS.md)* |
+
+Two or three is a good seed. `type: user` is refused by the script — who a developer is stays
+machine-local and is never committed.
+
+**Do this after S3**, so anything the inventories now answer does not get written twice.
+
+## S3b. Establish the pattern-search pattern
+
+**The `.claude/notes/` files are your searchable index.** Claude does *not* load them automatically —
+it finds them by grepping `.claude/MAP.tsv`, then reads only the one it needs, on every
+turn — they live in context. Teach Claude to search them first before calling grep:
+
+**Pattern recording:**
+1. When Claude adds a feature, screen, route, component, or asset, the `.claude/notes/` row goes in the
+   **same change** as the code (not a separate rescan).
+2. Each row is complete: name · file path · description · status. Paths must be exact and verified.
+3. Back-link to the file that STATES the rule — CLAUDE.md for a §2 rule, `docs/DONE.md` for a
+   checklist item: "See CLAUDE.md §2.1 — features never import each other" or "See DONE.md —
+   ≥44×44pt on every interactive element". Cite where the text actually lives, or the note ages
+   into a pointer that resolves and misleads.
+
+**Token-efficient workflow:**
+1. **Search the notes first** — "Is FooFeature in FEATURES.md? Does NAVIGATION.md list the FooScreen
+   route?"
+2. **If found in notes**, use the path and description directly. Zero grep.
+3. **If NOT found**, fall back to `grep`, then record the pattern in the relevant note.
+4. **Over time**, the notes become more complete and reduce token spend per session.
+
+**On every session:**
+- Claude finds `.claude/notes/` by grepping `.claude/MAP.tsv` — one grep, then one targeted read
+- First lookup: "Is this screen in FEATURES.md or NAVIGATION.md?"
+- No grep unless the notes gap forces it
+- New discoveries update the notes in the same commit as the code
+
+This pattern applies to **all skills** — they should use notes as their source-of-truth before
+falling back to grep.
+
+## S2c. Report cleanup candidates — delete nothing
+
+**`/project-init` does not remove files.** Not a doc, not a skill, not a command, not a rule. It
+gathers candidates and reports them; every deletion belongs to
+[`/clean-up-genericarch-extra-memory`](clean-up-genericarch-extra-memory.md).
+
+The reason is not caution for its own sake. A removal is four coupled writes — the file moves to
+`safetodelete/`, a tombstone lands, the `MAP.tsv` and `SCRIPTS.tsv` rows are pruned, and a
+`DECISIONS.md` row is written — and that pruning also strips the path out of the index and memory
+directories later lookups depend on. Interleaving it with rule reconciliation makes an adoption run
+impossible to review, and impossible to undo cleanly if a conflict answer changes.
+
+So collect, and hand over:
+
+**Report each candidate with the reason it is one**, then stop. If the list is empty, say that too:
+"nothing to clean up" is a useful sentence, and it stops the next session going looking.
+
+This base ships **no per-package docs at all** — a doc for a package a product may not have reads as
+current and describes code that is not there, which is the loop it was retired to close
+([DECISIONS.md](../../docs/DECISIONS.md)). A package's doc belongs beside its code as
+`Packages/<Name>/<Name>.md` ([STRUCTURE.md](../../docs/STRUCTURE.md)); the shape the layers take is
+[REPO.md](../../docs/REPO.md).
+
+## S3a. Offer the architecture layer — after the conflicts, never before
+
+An existing repo is installed **without** `new-feature` or `/review`. That is not an omission: until
+the §2/§3 rules are actually adopted, `new-feature` scaffolds a `Packages/Features` package the app
+cannot consume, and `/review` reports violations of rules the product declined. Shipping them
+unasked is how a repo ends up carrying surfaces that cannot fire.
+
+This is the moment they can be offered, because the rule-conflict table above is the consent:
+
+- **Most or all of §2 adopted** → offer it. One command, and say what it brings:
+  `./install.sh . --with-architecture` — adds the `new-feature` skill, `/review`, and the module and
+  pattern rows in `MAP.tsv`.
+- **Adopted for new code only** → offer it with that framing: `new-feature` applies to new packages,
+  `/review` output must be read against the declined list. Say both, then let them choose.
+- **Declined, or scope is docs-and-tooling** → **do not offer it.** Record in `DECISIONS.md`
+  *Do not re-propose* that the architecture layer was not installed and why. One line, then move on.
+
+Never install it on your own initiative, and never argue for it twice.
+
+## S3b. Shrink CLAUDE.md to what only CLAUDE.md can say
+
+**Adoption must leave `CLAUDE.md` smaller than it found it.** It is the one file loaded in full on
+every single session; the notes are looked up. When both hold the same material, the always-loaded
+copy is pure cost — an adoption that adds nine inventories beside an unchanged 600-line CLAUDE.md
+doubles the standing token bill and nothing gets cheaper.
+
+Walk the existing `CLAUDE.md` section by section and classify each one **out loud, in a table**:
+
+| Section holds | Verdict |
+|---|---|
+| Endpoint tables, paths, routers | → `.claude/notes/API-MAP.md`; leave a one-line pointer |
+| Env/config/xcconfig/key tables | → `.claude/notes/SCHEMES.md` |
+| Folder tree, per-module walkthroughs, screen lists | → `.claude/notes/FEATURES.md` |
+| Modifier/component/token catalogues | → `.claude/notes/STYLE-GUIDE.md` |
+| Route enums, navigation wiring | → `.claude/notes/NAVIGATION.md` |
+| Targets, capabilities, toolchain versions | → `.claude/notes/PROJECT.md` |
+| A rule, a prohibition, a decision, an ask-first | **keep** — this is what the file is for |
+| Build commands | keep one block; the rest is `/build` |
+
+Then: **show the proposed shrunken file and wait for a yes** (§12 — this file is never edited
+without approval). Report the before/after line count. Do not move content into a note and leave it
+in `CLAUDE.md` as well; one owner per fact.
+
+If the user declines, say plainly what it costs per session and move on — it is their file.
+
+## S4. Report
+
+State explicitly:
+
+- What was created, and what was **left untouched** because it already existed.
+- **Layers approved and layers skipped** — each one a **Settled** row, not *Open*. §0 reads an
+  *Open* row as unanswered and asks again, which is the loop: "no persistence layer — decided
+  <date>, revisit when user data is stored" is settled; the same text under *Open* is not.
+- **Skills installed** — and any **cleanup candidates** found, handed to
+  `/clean-up-genericarch-extra-memory`. This command removed nothing; say so explicitly.
+- Every rule conflict and how it was resolved — **including the ones resolved as "keep theirs",
+  which is the resolution most often left unrecorded.** A dropped rule goes to *Do not re-propose*;
+  an adopted one to *Settled*; only a genuine deferral to *Open*
+  ([ADOPTION.md](../../docs/ADOPTION.md) §A6).
+- **What was skipped, and which unanswered question blocks it.**
+- What was recorded in [DECISIONS.md](../../docs/DECISIONS.md), and what remains *Open*.
+
+**A resolution that exists only in this conversation is not recorded.** The transcript is gone next
+session; `DECISIONS.md` is what survives a clone. S5 will not let the step be recorded without it.
+
+A report that reads as complete when a question went unanswered, or that omits a cleanup candidate,
+or a package you didn't ask about, is the failure mode of this whole command.
+
+## S5. Seal and record
+
+This command rewrites installed files. Both lines, always — the first keeps them removable, the
+second unblocks the next step:
+
+First, prove every conflict the scan found is now a recorded decision. An unrecorded resolution
+lives only in this transcript, and the next run re-asks it — the loop §A6 warns about:
+
+```bash
+awk -F'\t' 'NR>1 && $1 != "" {print $1}' .claude/notes/.evidence/INIT-CONFLICTS.tsv 2>/dev/null \
+  | while IFS= read -r sig; do
+      grep -qiF "$sig" docs/DECISIONS.md || printf 'UNRECORDED: %s\n' "$sig"
+    done
+```
+
+**Any `UNRECORDED:` line means stop and record it** — with `/decide`, in the section §A6 gives for
+its direction. Then both lines below, always: the first keeps the files removable, the second
+unblocks the next step.
+
+```bash
+./Scripts/ga-reseal.sh --apply
+./Scripts/ga-step.sh record project-init "<what was reconciled, in a few words>"
+```
+
+Skipping the reseal turns every file this command touched into an orphan no uninstall can remove.

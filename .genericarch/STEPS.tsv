@@ -1,0 +1,8 @@
+#	GenericArch step ledger — which lifecycle steps have run, in order.
+#	Written by Scripts/ga-step.sh record. Order: install project-init gaps sync-app-notes ready
+#	step	at	note
+install	2026-09-08T10:05:06Z	v0.6.2 from 7967904be056d847b1c8b6c5efad8f6e9e762c8f
+project-init	2026-09-08T10:45:14Z	Path A on a CLAUDE.md-less repo: 14 of 16 §2 rules adopted (2 new-code-only, §2.7 fully with 9-site debt), §2.4 + testing left Open, 2 scan false positives recorded as Do not re-propose; arch layer installed, 5 CLAUDE.md written, read-only git permissions
+gaps	2026-09-08T10:54:04Z	0 adopted, 0 deferred, 11 skipped, 1 applied (widgets), 5 open risks (feature flags, crash reporting, lint, tests, supply-chain); handoff FOUND was a scan false positive
+sync-app-notes	2026-09-08T11:14:40Z	all 9: FEATURES+STYLE-GUIDE hand-written, ASSETS-COLORS/IMAGES/PROJECT/SCHEMES generated, API-MAP/NAVIGATION/FONTS record absence; fixed scan-colors.py luminosity bug that mislabelled 31/32 colorsets
+ready	2026-09-08T11:14:47Z	

@@ -183,3 +183,9 @@ iOSInjectionProject/
 **/xcshareddata/WorkspaceSettings.xcsettings
 
 # End of https://www.toptal.com/developers/gitignore/api/osx,swift,xcode,ruby
+
+# >>> GenericArch managed block — do not edit; removed by uninstall.sh >>>
+.claude/claude-tasks/
+.claude/notes/.evidence/
+dist/
+# <<< GenericArch managed block <<<
